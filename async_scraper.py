@@ -8,9 +8,6 @@ from bs4 import BeautifulSoup
 
 
 class AsyncScraper:
-    """
-    adding doc string
-    """
     def __init__(self, urls, pool_type, workers=4, display_time=False, display_progress=False):
         self.urls = urls                            # list of urls
         self.pool_type = pool_type                  # threads or processes
