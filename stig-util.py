@@ -12,7 +12,7 @@ USAGE
   positional arguments:
     scan
     fails SUMMARY_FILE
-    fix REMEDIATION_FILE OUTPUT_FILE RULE_PATTERNS
+    fix REMEDIATION_FILE OUTPUT_FILE RULE_PATTERN
 
 WORKFLOW
   Run scan
@@ -21,16 +21,17 @@ WORKFLOW
   List failed rules 
   # ./stig-util.py fails stig-202408171708-summary.txt  
 
-  Generate script for specific failed rules (e.g any rule with kernel in rule name)
-  # ./stig-util.py fix stig-202408171645-remediation.sh stig-fix-kernel.sh kernel
+  Generate script for specific failed rules (e.g any rule with kernel or dac in name)
+  # ./stig-util.py fix stig-202408171645-remediation.sh stig-fix-kernel-dac.sh "kernel|dac"
 
   Run fix script
-  # ./stig-fix-kernel.sh
+  # ./stig-fix-kernel-dac.sh
 
   Rinse and repeat
 '''
 import argparse
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime
@@ -44,6 +45,15 @@ RESULTS_FILE     = f"stig-{DATE}-results.xml"
 REPORT_FILE      = f"stig-{DATE}-report.html"
 REMEDIATION_FILE = f"stig-{DATE}-remediation.sh"
 SUMMARY_FILE     = f"stig-{DATE}-summary.txt"
+
+
+def get_uid_gid():
+  with open(f'/proc/{os.getpid()}/loginuid', 'r') as f:
+      uid = int(f.read())
+      username = subprocess.check_output(f'id -nu {uid}', shell=True).decode().strip()
+      group = subprocess.check_output(f'id -gn {username}', shell=True).decode().strip()
+      gid = int(subprocess.check_output(f'id -g {group}', shell=True).decode().strip())
+  return uid, gid
 
 
 def run_scan():
@@ -84,6 +94,13 @@ def run_scan():
   )
   print(f'+ Created {REMEDIATION_FILE}')
 
+  # update perms
+  uid, gid = get_uid_gid()
+  os.chown(RESULTS_FILE, uid, gid)
+  os.chown(REPORT_FILE, uid, gid)
+  os.chown(SUMMARY_FILE, uid, gid)
+  os.chown(REMEDIATION_FILE, uid, gid)
+
 
 def list_fails(summary_file):
   subprocess.call(
@@ -93,7 +110,7 @@ def list_fails(summary_file):
   )
 
 
-def gen_fix_script(remediation_file, output_file, rule_patterns):
+def gen_fix_script(remediation_file, output_file, rule_pattern):
   rules = {}
   with open(remediation_file, 'r') as f:
     copy = False
@@ -115,9 +132,9 @@ def gen_fix_script(remediation_file, output_file, rule_patterns):
 
   fixes = ''
   for k,v in rules.items():
-    for pat in rule_patterns:
-      if pat in k:
-        fixes += v
+    if re.search(fr'{rule_pattern}', k):
+      print(f'+ {k}')
+      fixes += v
 
   with open(output_file, 'w') as f:
     f.write(f'#!/usr/bin/env bash\n\n{fixes}')
@@ -137,7 +154,7 @@ def main():
   fix = subparsers.add_parser('fix', help='create remediation script for specific rules')
   fix.add_argument('REMEDIATION_FILE')
   fix.add_argument('OUTPUT_FILE')
-  fix.add_argument('RULE_PATTERNS', nargs='+')
+  fix.add_argument('RULE_PATTERN')
 
   args = parser.parse_args()
 
@@ -146,7 +163,7 @@ def main():
   elif args.cmd == 'fails':
     list_fails(args.SUMMARY_FILE)
   elif args.cmd == 'fix':
-    gen_fix_script(args.REMEDIATION_FILE, args.OUTPUT_FILE, args.RULE_PATTERNS)
+    gen_fix_script(args.REMEDIATION_FILE, args.OUTPUT_FILE, args.RULE_PATTERN)
 
 
 if __name__ == '__main__':
