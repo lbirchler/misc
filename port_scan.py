@@ -11,7 +11,7 @@ import sys
 
 
 def fatal(msg):
-  print(msg)
+  print(msg, file=sys.stderr)
   sys.exit(1)
 
 
